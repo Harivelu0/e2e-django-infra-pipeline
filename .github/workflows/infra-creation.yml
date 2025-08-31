@@ -3,54 +3,60 @@ name: Terraform infra pipeline
 on:
   push:
     paths:
-       - 'terraform/**'
+      - 'terraform/**'
   workflow_dispatch:
 
 jobs:
   terraform:
-    name:  Provision aws infrastructure
+    name: Provision AWS infrastructure
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: terraform
 
     steps:
-      - name: checkout directory
+      - name: Checkout repository
         uses: actions/checkout@v3
-      - name: setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with: 
-          terraform_version: latest
 
-      - name: AWS credentials
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest  
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
       - name: Terraform init
         run: terraform init -input=false
+
       - name: Terraform format
         run: terraform fmt -check
-      - name: Terraform Validate
+
+      - name: Terraform validate
         run: terraform validate
+
       - name: Terraform plan
-        run: terraform plan -out=tfplan  
+        run: terraform plan -out=tfplan
+
       - name: Terraform apply
-        if: github.ref=='refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve
-      - name: Export outputs
+
+      - name: Export Terraform outputs
         id: tfoutputs
         run: |
           terraform output -json > tfoutputs.json
           cat tfoutputs.json
-      
-      - name: update github secrets with outputs
-        if: github.ref=='refs/heads/main'
+
+      - name: Update GitHub secrets with Terraform outputs
+        if: github.ref == 'refs/heads/main'
         run: |
-          for key in $(jq -r 'keys[]' tf_outputs.json); do
-            value=$(jq -r ".\"$key\".value" tf_outputs.json)
+          for key in $(jq -r 'keys[]' tfoutputs.json); do
+            value=$(jq -r ".\"$key\".value" tfoutputs.json)
             echo "Setting secret: $key"
             gh secret set $key --body "$value"
           done
