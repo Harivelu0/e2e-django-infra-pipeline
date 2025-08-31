@@ -7,9 +7,12 @@ resource "aws_vpc" "main" {
   }
 }
 
+# Fetch existing AZs in the region
+data "aws_availability_zones" "available" {}
+
 #internet gsteway
 resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.name.id
+  vpc_id = aws_vpc.main.id
   tags = {
     Name = "${var.project_name}-igw"
   }

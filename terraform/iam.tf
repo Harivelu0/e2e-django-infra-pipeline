@@ -41,7 +41,7 @@ resource "aws_iam_policy" "secrets_read" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
-      Resource = aws_secretsmanager_secret.djsecret.arn
+      Resource = aws_secretsmanager_secret.app_secrets.arn
     }]
   })
 }
