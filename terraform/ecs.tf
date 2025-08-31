@@ -19,9 +19,9 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
-      name      = "django-app"
-      image     = var.docker_image
-      essential = true
+      name         = "django-app"
+      image        = var.docker_image
+      essential    = true
       portMappings = [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }]
       logConfiguration = {
         logDriver = "awslogs",
@@ -35,11 +35,11 @@ resource "aws_ecs_task_definition" "app" {
       secrets = [
         # Use JSON key references for individual keys inside the secret
         { name = "DJANGO_SECRET_KEY", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DJANGO_SECRET_KEY::" },
-        { name = "DB_NAME",           valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_NAME::" },
-        { name = "DB_USER",           valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_USER::" },
-        { name = "DB_PASSWORD",       valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_PASSWORD::" },
-        { name = "DB_HOST",           valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_HOST::" },
-        { name = "DB_PORT",           valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_PORT::" }
+        { name = "DB_NAME", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_NAME::" },
+        { name = "DB_USER", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_USER::" },
+        { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_PASSWORD::" },
+        { name = "DB_HOST", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_HOST::" },
+        { name = "DB_PORT", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_PORT::" }
       ]
       command = [
         "gunicorn",
@@ -60,8 +60,8 @@ resource "aws_ecs_service" "app" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = aws_subnet.private[*].id
-    security_groups = [aws_security_group.ecs_sg.id]
+    subnets          = aws_subnet.private[*].id
+    security_groups  = [aws_security_group.ecs_sg.id]
     assign_public_ip = false
   }
 
