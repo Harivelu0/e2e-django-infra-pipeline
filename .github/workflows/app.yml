@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    depends_on:
+      - infra-creation
 
     env:
       AWS_REGION: us-east-1
