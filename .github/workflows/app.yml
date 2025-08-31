@@ -1,16 +1,14 @@
 name: App CI/CD Pipeline
 
 on:
-  push:
-    branches:
-      - main 
+  workflow_run:
+    workflows: ["infra-creation"]
+    types:
+      - completed
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    depends_on:
-      - infra-creation
-
     env:
       AWS_REGION: us-east-1
       ECR_REPO: my-django-app
