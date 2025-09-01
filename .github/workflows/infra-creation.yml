@@ -65,3 +65,15 @@ jobs:
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    post:
+      - name: Force Unlock Terraform State
+        if: always()
+        run: |
+          LOCK_ID=$(aws dynamodb scan \
+            --table-name your-lock-table \
+            --query "Items[0].LockID.S" \
+            --output text)
+
+          if [ "$LOCK_ID" != "None" ]; then
+            terraform force-unlock -force $LOCK_ID || true
+          fi
