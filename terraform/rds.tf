@@ -1,4 +1,4 @@
-#subnet rds
+#aws subnet rds
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name       = "${var.project_name}-rds-subnet-group"
