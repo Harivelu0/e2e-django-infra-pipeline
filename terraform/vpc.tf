@@ -111,7 +111,7 @@ resource "aws_route_table_association" "private_as" {
   subnet_id      = aws_subnet.private[count.index].id
 }
 
-# security group for load balncer
+# security group for load balncers
 
 resource "aws_security_group" "alb_sg" {
   name        = "${var.project_name}-alb-sg"

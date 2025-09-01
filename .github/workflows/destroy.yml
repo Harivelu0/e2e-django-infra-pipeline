@@ -32,3 +32,5 @@ jobs:
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
+        env:
+          TF_VAR_djanko_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
