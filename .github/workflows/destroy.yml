@@ -32,15 +32,3 @@ jobs:
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
-    post:
-      - name: Force Unlock Terraform State
-        if: always()
-        run: |
-          LOCK_ID=$(aws dynamodb scan \
-            --table-name terraform-locks \
-            --query "Items[0].LockID.S" \
-            --output text)
-
-          if [ "$LOCK_ID" != "None" ]; then
-            terraform force-unlock -force $LOCK_ID || true
-          fi
