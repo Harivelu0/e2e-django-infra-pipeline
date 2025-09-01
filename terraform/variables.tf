@@ -4,7 +4,7 @@ variable "project_name" {
   type    = string
 }
 
-# region
+# aws region
 variable "region" {
   default = "us-east-1"
   type    = string

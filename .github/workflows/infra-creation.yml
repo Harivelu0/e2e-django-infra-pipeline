@@ -41,11 +41,14 @@ jobs:
 
       - name: Terraform plan
         run: terraform plan -out=tfplan
+        env:
+          TF_VAR_djanko_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve
-
+        env:
+          TF_VAR_djanko_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
       - name: Export Terraform outputs
         id: tfoutputs
         run: |
