@@ -48,7 +48,7 @@ variable "db_password" {
 
 # db name
 variable "db_name" {
-  default = "django-blog"
+  default = "djangoblog"
   type    = string
 }
 
