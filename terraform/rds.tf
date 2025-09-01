@@ -23,7 +23,7 @@ resource "aws_db_instance" "mysql" {
   db_subnet_group_name    = aws_db_subnet_group.rds_subnet_group.name
   multi_az                = false
   publicly_accessible     = false
-  storage_encrypted       = true
+  storage_encrypted       = false
   backup_retention_period = 7
   skip_final_snapshot     = true
   tags = {
