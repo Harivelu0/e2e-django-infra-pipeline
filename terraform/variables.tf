@@ -61,8 +61,9 @@ variable "djanko_secret_key" {
 
 #container image
 variable "container_image" {
-  default = "763104351884.dkr.ecr.us-east-1.amazonaws.com"
-  type    = string
+  description = "ECR image for the ECS task (with tag)"
+  type        = string
+  default     = "nginx:latest"
 }
 
 # nat gateway
