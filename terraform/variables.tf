@@ -56,7 +56,7 @@ variable "db_name" {
 variable "djanko_secret_key" {
   type      = string
   sensitive = true
-
+  default = "1234567890123456"
 }
 
 #container image
