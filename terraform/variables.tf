@@ -46,7 +46,7 @@ variable "db_password" {
   type    = string
 }
 
-# db name
+# db names
 variable "db_name" {
   default = "djangoblog"
   type    = string
