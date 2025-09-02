@@ -1,4 +1,4 @@
-# execution role - pull image, push logs
+# execution role - pull image, push log
 resource "aws_iam_role" "ecs_execution_role" {
   name = "${var.project_name}-ecs-execution-role"
   assume_role_policy = jsonencode({
