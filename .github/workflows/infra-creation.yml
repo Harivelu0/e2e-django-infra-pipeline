@@ -61,17 +61,19 @@ jobs:
           echo "Reading Terraform outputs..."
           cat tfoutputs.json
         
-          for key in $(jq -r 'keys[]' tfoutputs.json); do
+          # Iterate over keys safely
+          keys=$(jq -r 'keys[]' tfoutputs.json)
+          for key in $keys; do
             type=$(jq -r ".\"$key\".type[0]?" tfoutputs.json)
         
             if [ "$type" = "tuple" ]; then
-              # Convert array to comma-separated string
-              value=$(jq -r ".\"$key\".value | join(\",\")" tfoutputs.json)
+              # Convert array to comma-separated string safely
+              value=$(jq -c -r ".\"$key\".value | join(\",\")" tfoutputs.json)
             else
               value=$(jq -r ".\"$key\".value" tfoutputs.json)
             fi
         
-            echo "Setting secret: $key"
+            echo "Setting secret: $key = $value"
             gh secret set "$key" --body "$value"
           done
         env:
