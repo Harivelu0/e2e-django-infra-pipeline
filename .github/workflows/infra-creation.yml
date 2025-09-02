@@ -1,4 +1,4 @@
-name: Terraform infra pipeline
+name: Terraform Infra Pipeline
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   terraform:
-    name: Provision AWS infrastructure
+    name: Provision AWS Infrastructure
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -21,7 +21,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: latest  
+          terraform_version: latest
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -42,41 +42,38 @@ jobs:
       - name: Terraform plan
         run: terraform plan -out=tfplan
         env:
-          TF_VAR_djanko_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
+          TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve
         env:
-          TF_VAR_djanko_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
+          TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
+
       - name: Export Terraform outputs
         id: tfoutputs
         run: |
-          terraform output -json > tfoutputs.json
-          cat tfoutputs.json
+          terraform output -json | tee tfoutputs.json
+          jq -c . tfoutputs.json  # sanity check
 
       - name: Update GitHub secrets with Terraform outputs
         if: github.ref == 'refs/heads/main'
         run: |
-          echo "Reading Terraform outputs..."
-          cat tfoutputs.json
-        
-          # Iterate over keys safely
-          keys=$(jq -r 'keys[]' tfoutputs.json)
-          for key in $keys; do
-            type=$(jq -r ".\"$key\".type[0]?" tfoutputs.json)
-        
+          echo "Reading Terraform outputs and storing as GitHub secrets..."
+          jq -c 'to_entries[]' tfoutputs.json | while read -r item; do
+            key=$(echo "$item" | jq -r '.key')
+            type=$(echo "$item" | jq -r '.value.type[0]?')
+
             if [ "$type" = "tuple" ]; then
-              # Convert array to comma-separated string safely
-              value=$(jq -c -r ".\"$key\".value | join(\",\")" tfoutputs.json)
+              # Convert array to comma-separated string
+              value=$(echo "$item" | jq -r '.value.value | join(",")')
             else
-              value=$(jq -r ".\"$key\".value" tfoutputs.json)
+              value=$(echo "$item" | jq -r '.value.value')
             fi
-        
+
             echo "Setting secret: $key = $value"
             gh secret set "$key" --body "$value"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        
