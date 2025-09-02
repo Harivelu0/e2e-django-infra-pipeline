@@ -52,11 +52,9 @@ variable "db_name" {
   type    = string
 }
 
-#djanko secret key
-variable "djanko_secret_key" {
+variable "django_secret_key" {
   type      = string
   sensitive = true
-  default = "1234567890123456"
 }
 
 #container images
