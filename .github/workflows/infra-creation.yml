@@ -58,12 +58,23 @@ jobs:
       - name: Update GitHub secrets with Terraform outputs
         if: github.ref == 'refs/heads/main'
         run: |
+          echo "Reading Terraform outputs..."
           cat tfoutputs.json
+        
           for key in $(jq -r 'keys[]' tfoutputs.json); do
-            value=$(jq -r ".\"$key\".value" tfoutputs.json)
+            type=$(jq -r ".\"$key\".type[0]?" tfoutputs.json)
+        
+            if [ "$type" = "tuple" ]; then
+              # Convert array to comma-separated string
+              value=$(jq -r ".\"$key\".value | join(\",\")" tfoutputs.json)
+            else
+              value=$(jq -r ".\"$key\".value" tfoutputs.json)
+            fi
+        
             echo "Setting secret: $key"
             gh secret set "$key" --body "$value"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
+        
