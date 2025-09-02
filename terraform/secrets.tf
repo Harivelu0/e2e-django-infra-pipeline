@@ -1,8 +1,13 @@
-resource "aws_secretsmanager_secret" "app_secrets" {
-  name = "${var.project_name}-secret"
-
+resource "random_string" "secret_suffix" {
+  length  = 6
+  upper   = false
+  special = false
 }
 
+resource "aws_secretsmanager_secret" "app_secrets" {
+  name = "${var.project_name}-secret-${random_string.secret_suffix.result}"
+
+}
 resource "aws_secretsmanager_secret_version" "djsecretversion" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
