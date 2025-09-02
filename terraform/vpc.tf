@@ -7,7 +7,7 @@ resource "aws_vpc" "main" {
   }
 }
 
-# Fetch existing AZs in the region
+# Fetch existing AZs in the regions
 data "aws_availability_zones" "available" {}
 
 #internet gsteway
