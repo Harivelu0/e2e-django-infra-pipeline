@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'terraform/**'
+      - '.github/workflows/infra-creation.yml'
   workflow_dispatch:
 
 jobs:
@@ -13,25 +14,34 @@ jobs:
     defaults:
       run:
         working-directory: terraform
-
+    
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: latest
+          # This allows terraform commands to return outputs properly
+          terraform_wrapper: false
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Terraform init
-        run: terraform init -input=false
+      # The key difference: Terraform will store state AND outputs remotely
+      - name: Terraform init with remote backend
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="key=infrastructure/terraform.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="encrypt=true" \
+            -input=false
 
       - name: Terraform format
         run: terraform fmt -recursive
@@ -46,34 +56,18 @@ jobs:
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve -input=false
+        run: terraform apply -auto-approve tfplan
         env:
           TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
 
-      - name: Export Terraform outputs
-        id: tfoutputs
-        run: |
-          terraform output -json | tee tfoutputs.json
-          jq -c . tfoutputs.json  # sanity check
-
-      - name: Update GitHub secrets with Terraform outputs
+      # Optional: Display outputs for debugging (they're already stored in remote state)
+      - name: Display infrastructure outputs
         if: github.ref == 'refs/heads/main'
         run: |
-          echo "Reading Terraform outputs and storing as GitHub secrets..."
-          jq -c 'to_entries[]' tfoutputs.json | while read -r item; do
-            key=$(echo "$item" | jq -r '.key')
-            type=$(echo "$item" | jq -r '.value.type[0]?')
-
-            if [ "$type" = "tuple" ]; then
-              # Convert array to comma-separated string
-              value=$(echo "$item" | jq -r '.value.value | join(",")')
-            else
-              value=$(echo "$item" | jq -r '.value.value')
-            fi
-
-            echo "Setting secret: $key = $value"
-            gh secret set "$key" --body "$value"
-          done
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
+          echo "🏗️ Infrastructure created successfully!"
+          echo ""
+          echo "📋 Infrastructure Details:"
+          terraform output -json | jq -r 'to_entries[] | "  \(.key): \(.value.value)"'
+          echo ""
+          echo "✅ Outputs are automatically stored in remote state"
+          echo "🚀 App pipeline can now access these outputs directly!"
