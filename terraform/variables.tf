@@ -59,7 +59,7 @@ variable "djanko_secret_key" {
   default = "1234567890123456"
 }
 
-#container image
+#container images
 variable "container_image" {
   description = "ECR image for the ECS task (with tag)"
   type        = string
