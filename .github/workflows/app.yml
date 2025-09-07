@@ -33,30 +33,28 @@ jobs:
         working-directory: terraform
         run: terraform init -input=false
 
-      - name: Fetch Terraform output
+      - name: Fetch Terraform secret name
         working-directory: terraform
         run: |
-          # Remove newlines, carriage returns, and extra spaces
-          SECRET_NAME=$(terraform output -raw app_secret_name | tr -d '\r\n' | xargs)
+          echo "Fetching app_secret_name from remote backend..."
+          SECRET_NAME=$(terraform output -raw app_secret_name 2>/dev/null | tr -d '\r\n' | xargs)
+          echo "SECRET_NAME=$SECRET_NAME"
           echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
-        
-      - name: Verify secret name
-        run: echo "SECRET_NAME is '$SECRET_NAME'"
 
-      # 4️⃣ Fetch App Secrets from AWS Secrets Manager
+
       - name: Fetch App Secrets
         run: |
           SECRET_JSON=$(aws secretsmanager get-secret-value \
             --secret-id "$SECRET_NAME" \
             --query SecretString \
             --output text)
-          
           echo "$SECRET_JSON" > secret.json
-        
+         
           for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
             value=$(jq -r ".${key}" secret.json)
             echo "$key=$value" >> $GITHUB_ENV
           done
+         
         
       # 5️⃣ Install Python dependencies
       - name: Setup Python environment
