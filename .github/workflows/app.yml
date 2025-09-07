@@ -36,9 +36,9 @@ jobs:
       - name: Fetch Terraform output
         working-directory: terraform
         run: |
-          echo "Fetching app_secret_name from remote backend..."
-          SECRET_NAME=$(terraform output -raw app_secret_name)
+          SECRET_NAME=$(terraform output -raw app_secret_name | tr -d '\n')
           echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
+
 
       # 4️⃣ Fetch App Secrets from AWS Secrets Manager
       - name: Fetch App Secrets
