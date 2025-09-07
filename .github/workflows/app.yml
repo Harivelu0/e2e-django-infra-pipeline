@@ -35,44 +35,34 @@ jobs:
         working-directory: terraform
         run: terraform init -input=false
 
-      # 5️⃣ Extract secret name with simpler approach
+      # 5️⃣ Use GitHub's Environment Files method to set variables
       - name: Set Secret Name
-        working-directory: terraform
+        id: set_secret
         run: |
-          echo "Fetching app_secret_name from Terraform output..."
-          TERRAFORM_OUTPUT=$(terraform output -raw app_secret_name)
-          
-          # Clean up the output - remove everything after the first newline
-          CLEAN_SECRET=$(echo "$TERRAFORM_OUTPUT" | sed 's/\([a-zA-Z0-9-]*\).*/\1/')
-          
-          # Make sure we got a valid secret name
-          if [[ ! "$CLEAN_SECRET" =~ django-blog-secrets-[a-zA-Z0-9]+ ]]; then
-            echo "Warning: Could not extract valid secret name"
-            # Direct approach - hardcode as fallback
-            CLEAN_SECRET="django-blog-secrets-bv4fh0"
-          fi
-          
-          # Set environment variable using GitHub's special syntax
-          echo "SECRET_NAME=${CLEAN_SECRET}" >> "${GITHUB_ENV}"
-          echo "Using secret name: ${CLEAN_SECRET}"
+          # Just hardcode the secret name for now to get the workflow working
+          echo "SECRET_NAME=django-blog-secrets-bv4fh0" >> "$GITHUB_OUTPUT"
 
       # 6️⃣ Fetch app secrets from AWS Secrets Manager
       - name: Fetch App Secrets
         run: |
-          echo "Retrieving secrets using name: $SECRET_NAME"
+          echo "Retrieving secrets using name: ${{ steps.set_secret.outputs.SECRET_NAME }}"
           SECRET_JSON=$(aws secretsmanager get-secret-value \
-            --secret-id "$SECRET_NAME" \
+            --secret-id "${{ steps.set_secret.outputs.SECRET_NAME }}" \
             --query SecretString \
             --output text)
           
           echo "Secret retrieved successfully. Parsing values..."
           echo "$SECRET_JSON" > secret.json
 
-          for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
-            value=$(jq -r ".${key}" secret.json)
-            echo "$key has been set"
-            echo "$key=$value" >> $GITHUB_ENV
-          done
+          # Create environment file for the next steps
+          {
+            echo "DB_NAME=$(jq -r '.DB_NAME' secret.json)"
+            echo "DB_USER=$(jq -r '.DB_USER' secret.json)"
+            echo "DB_PASSWORD=$(jq -r '.DB_PASSWORD' secret.json)"
+            echo "DB_HOST=$(jq -r '.DB_HOST' secret.json)"
+            echo "DB_PORT=$(jq -r '.DB_PORT' secret.json)"
+            echo "DJANGO_SECRET_KEY=$(jq -r '.DJANGO_SECRET_KEY' secret.json)"
+          } > "$GITHUB_ENV"
           
           # Remove secret file after use
           rm secret.json
