@@ -5,6 +5,7 @@ on:
     workflows: ["Terraform Infra Pipeline"]
     types:
       - completed
+  workflow_dispatch:
 
 jobs:
   deploy:
