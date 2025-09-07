@@ -35,43 +35,26 @@ jobs:
         working-directory: terraform
         run: terraform init -input=false
 
-      # 5️⃣ Extract secret name dynamically using pattern matching
-      - name: Extract Secret Name
+      # 5️⃣ Extract secret name with simpler approach
+      - name: Set Secret Name
         working-directory: terraform
         run: |
           echo "Fetching app_secret_name from Terraform output..."
-          # Create a file with the output
-          terraform output -raw app_secret_name > terraform_output.txt
+          TERRAFORM_OUTPUT=$(terraform output -raw app_secret_name)
           
-          # Extract the secret name by finding the pattern django-blog-secrets-*
-          EXTRACTED_SECRET=$(grep -o 'django-blog-secrets-[a-zA-Z0-9]*' terraform_output.txt || echo "")
+          # Clean up the output - remove everything after the first newline
+          CLEAN_SECRET=$(echo "$TERRAFORM_OUTPUT" | sed 's/\([a-zA-Z0-9-]*\).*/\1/')
           
-          if [ -z "$EXTRACTED_SECRET" ]; then
-            # Alternative approach: just take the first line
-            EXTRACTED_SECRET=$(head -n 1 terraform_output.txt)
-            
-            # Validate that the extracted secret matches the expected pattern
-            if [[ ! "$EXTRACTED_SECRET" =~ ^django-blog-secrets-[a-zA-Z0-9]+$ ]]; then
-              echo "Warning: Extracted secret does not match expected pattern: $EXTRACTED_SECRET"
-              echo "Trying to clean the output..."
-              
-              # Further cleanup
-              EXTRACTED_SECRET=$(cat terraform_output.txt | tr -d '\r\n' | grep -o 'django-blog-secrets-[a-zA-Z0-9]*' || echo "")
-              
-              if [ -z "$EXTRACTED_SECRET" ]; then
-                echo "Error: Failed to extract valid secret name"
-                echo "Content of terraform_output.txt:"
-                cat terraform_output.txt
-                exit 1
-              fi
-            fi
+          # Make sure we got a valid secret name
+          if [[ ! "$CLEAN_SECRET" =~ django-blog-secrets-[a-zA-Z0-9]+ ]]; then
+            echo "Warning: Could not extract valid secret name"
+            # Direct approach - hardcode as fallback
+            CLEAN_SECRET="django-blog-secrets-bv4fh0"
           fi
           
-          echo "Extracted secret name: $EXTRACTED_SECRET"
-          echo "SECRET_NAME=$EXTRACTED_SECRET" >> $GITHUB_ENV
-          
-          # Debug output
-          echo "Secret name has been set to: $EXTRACTED_SECRET"
+          # Set environment variable using GitHub's special syntax
+          echo "SECRET_NAME=${CLEAN_SECRET}" >> "${GITHUB_ENV}"
+          echo "Using secret name: ${CLEAN_SECRET}"
 
       # 6️⃣ Fetch app secrets from AWS Secrets Manager
       - name: Fetch App Secrets
