@@ -89,4 +89,4 @@ jobs:
             -e DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY \
             -e DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }} \
             my-django-app:latest \
-            python manage.py createsuperuser --noinput --username admin --email admin@example.com
+            python manage.py createsuperuser --noinput --username admin --email setchuko@gmail.com
