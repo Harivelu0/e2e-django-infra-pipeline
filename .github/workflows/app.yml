@@ -36,9 +36,12 @@ jobs:
       - name: Fetch Terraform output
         working-directory: terraform
         run: |
-          SECRET_NAME=$(terraform output -raw app_secret_name | tr -d '\n')
+          # Remove newlines, carriage returns, and extra spaces
+          SECRET_NAME=$(terraform output -raw app_secret_name | tr -d '\r\n' | xargs)
           echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
-
+        
+      - name: Verify secret name
+        run: echo "SECRET_NAME is '$SECRET_NAME'"
 
       # 4️⃣ Fetch App Secrets from AWS Secrets Manager
       - name: Fetch App Secrets
@@ -49,12 +52,12 @@ jobs:
             --output text)
           
           echo "$SECRET_JSON" > secret.json
-          
+        
           for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
             value=$(jq -r ".${key}" secret.json)
             echo "$key=$value" >> $GITHUB_ENV
           done
-
+        
       # 5️⃣ Install Python dependencies
       - name: Setup Python environment
         run: |
@@ -95,3 +98,4 @@ jobs:
             --cluster django-ecs-cluster \
             --service django-service \
             --force-new-deployment
+
