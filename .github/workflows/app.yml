@@ -24,46 +24,57 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: latest
 
+      # 4️⃣ Initialize Terraform
       - name: Terraform Init (remote backend)
         working-directory: terraform
         run: terraform init -input=false
 
-      # Fetch app secret name from remote Terraform backend
+      # 5️⃣ Fetch app secret name from remote Terraform backend
       - name: Fetch App Secret Name
+        working-directory: terraform
         run: |
           echo "Fetching app_secret_name from Terraform output..."
-          SECRET_NAME=$(terraform output -raw app_secret_name | tr -d '\r\n' | xargs)
+          SECRET_NAME=$(terraform output -raw app_secret_name)
+          if [ -z "$SECRET_NAME" ]; then
+            echo "Error: Failed to retrieve secret name from Terraform output"
+            exit 1
+          fi
+          echo "Secret name retrieved: $SECRET_NAME"
           echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
 
-
-
+      # 6️⃣ Fetch app secrets from AWS Secrets Manager
       - name: Fetch App Secrets
         run: |
+          echo "Retrieving secrets using name: $SECRET_NAME"
           SECRET_JSON=$(aws secretsmanager get-secret-value \
             --secret-id "$SECRET_NAME" \
             --query SecretString \
             --output text)
           
+          echo "Secret retrieved successfully. Parsing values..."
           echo "$SECRET_JSON" > secret.json
 
           for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
             value=$(jq -r ".${key}" secret.json)
+            echo "$key has been set"
             echo "$key=$value" >> $GITHUB_ENV
           done
+          
+          # Remove secret file after use
+          rm secret.json
         env:
           AWS_DEFAULT_REGION: us-east-1
           AWS_REGION: us-east-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
          
-        
-      # 5️⃣ Install Python dependencies
+      # 7️⃣ Install Python dependencies
       - name: Setup Python environment
         run: |
           python3 -m venv venv
@@ -71,7 +82,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 6️⃣ Run Django migrations & create admin user
+      # 8️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
         run: |
           source venv/bin/activate
@@ -82,25 +93,31 @@ jobs:
           export DB_HOST=$DB_HOST
           export DB_PORT=$DB_PORT
 
-          # Run migrations
+          echo "Running Django migrations..."
           python manage.py migrate
 
-          # Create admin user if not exists
+          echo "Creating admin user if not exists..."
           python manage.py createsuperuser \
             --noinput --username admin --email admin@example.com || echo "Admin already exists"
 
-      # 7️⃣ Build & push Docker image
+      # 9️⃣ Build & push Docker image
       - name: Build and Push Docker Image
         run: |
+          echo "Authenticating with ECR..."
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+          
+          echo "Building and pushing Docker image..."
           IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      # 8️⃣ Deploy to ECS
+      # 🔟 Deploy to ECS
       - name: Deploy to ECS
         run: |
+          echo "Deploying to ECS..."
           aws ecs update-service \
             --cluster django-ecs-cluster \
             --service django-service \
             --force-new-deployment
-
+          
+          echo "Deployment complete!"
