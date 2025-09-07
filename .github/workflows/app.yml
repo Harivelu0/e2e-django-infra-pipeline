@@ -40,26 +40,38 @@ jobs:
         working-directory: terraform
         run: |
           echo "Fetching app_secret_name from Terraform output..."
-          TERRAFORM_OUTPUT=$(terraform output -json)
-          echo "Raw Terraform output retrieved"
+          # Create a file with the output
+          terraform output -raw app_secret_name > terraform_output.txt
           
-          # Extract the app_secret_name value using jq
-          EXTRACTED_SECRET=$(echo $TERRAFORM_OUTPUT | jq -r '.app_secret_name.value')
+          # Extract the secret name by finding the pattern django-blog-secrets-*
+          EXTRACTED_SECRET=$(grep -o 'django-blog-secrets-[a-zA-Z0-9]*' terraform_output.txt || echo "")
           
-          if [ -z "$EXTRACTED_SECRET" ] || [ "$EXTRACTED_SECRET" == "null" ]; then
-            echo "Error: Could not extract secret name using jq"
+          if [ -z "$EXTRACTED_SECRET" ]; then
+            # Alternative approach: just take the first line
+            EXTRACTED_SECRET=$(head -n 1 terraform_output.txt)
             
-            # Fallback method: extract using grep
-            EXTRACTED_SECRET=$(echo $TERRAFORM_OUTPUT | grep -o 'django-blog-secrets-[a-zA-Z0-9]*' | head -n 1)
-            
-            if [ -z "$EXTRACTED_SECRET" ]; then
-              echo "Error: Failed to extract secret name using fallback method"
-              exit 1
+            # Validate that the extracted secret matches the expected pattern
+            if [[ ! "$EXTRACTED_SECRET" =~ ^django-blog-secrets-[a-zA-Z0-9]+$ ]]; then
+              echo "Warning: Extracted secret does not match expected pattern: $EXTRACTED_SECRET"
+              echo "Trying to clean the output..."
+              
+              # Further cleanup
+              EXTRACTED_SECRET=$(cat terraform_output.txt | tr -d '\r\n' | grep -o 'django-blog-secrets-[a-zA-Z0-9]*' || echo "")
+              
+              if [ -z "$EXTRACTED_SECRET" ]; then
+                echo "Error: Failed to extract valid secret name"
+                echo "Content of terraform_output.txt:"
+                cat terraform_output.txt
+                exit 1
+              fi
             fi
           fi
           
           echo "Extracted secret name: $EXTRACTED_SECRET"
           echo "SECRET_NAME=$EXTRACTED_SECRET" >> $GITHUB_ENV
+          
+          # Debug output
+          echo "Secret name has been set to: $EXTRACTED_SECRET"
 
       # 6️⃣ Fetch app secrets from AWS Secrets Manager
       - name: Fetch App Secrets
