@@ -4,53 +4,45 @@ on:
   push:
     paths:
       - 'terraform/**'
-      - '.github/workflows/infra-creation.yml'
   workflow_dispatch:
 
 jobs:
   terraform:
-    name: Provision AWS Infrastructure
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: terraform
-    
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: latest
-          terraform_wrapper: false
+          terraform_version: 1.7.5
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Terraform init with remote backend
-        run: terraform init
+      - name: Terraform Init & Apply
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve
 
-      - name: Terraform format
-        run: terraform fmt -recursive
+      - name: Export Secret Name
+        id: export_secret
+        run: |
+          SECRET_NAME=$(terraform output -raw app_secret_name)
+          echo "secret_name=$SECRET_NAME" >> $GITHUB_OUTPUT
 
-      - name: Terraform validate
-        run: terraform validate
-
-      - name: Terraform plan
-        run: terraform plan -out=tfplan -input=false
-        env:
-          TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
-
-      - name: Terraform apply
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve tfplan
-        env:
-          TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
-
-      - name: Infra Completed
-        run: echo "✅ Terraform infra applied successfully. Outputs are stored in remote backend."
+      - name: Upload Secret Name as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-secret
+          path: secret_name.txt
+        run: echo "${{ steps.export_secret.outputs.secret_name }}" > secret_name.txt

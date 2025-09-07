@@ -1,92 +1,60 @@
-name: App CI/CD Pipeline
+name: Deploy App
 
 on:
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Terraform Infra Pipeline"]
+    types:
+      - completed
 
 jobs:
-  build-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: us-east-1
-      ECR_REPO: my-django-app
-      ECS_CLUSTER: django-ecs-cluster
-      ECS_SERVICE: django-service
-      CONTAINER_NAME: django-app
 
     steps:
-      # Checkout repo
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Configure AWS credentials (static keys)
-      - name: Configure AWS Credentials
+      - name: Download secret artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: app-secret
+          path: .
+
+      - name: Read secret name
+        id: read_secret
+        run: |
+          SECRET_NAME=$(cat secret_name.txt)
+          echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-east-1
 
-      # Login to Amazon ECR
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      # Fetch App Secrets from Secrets Manager
       - name: Fetch App Secrets
-        id: fetch-secrets
         run: |
           SECRET_JSON=$(aws secretsmanager get-secret-value \
-            --secret-id ${{ secrets.APP_SECRET_NAME }} \
+            --secret-id $SECRET_NAME \
             --query SecretString \
             --output text)
-          echo "$SECRET_JSON" > secret.json
 
-          # Export each value as env variable
+          echo "$SECRET_JSON" > secret.json
           for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
             value=$(jq -r ".${key}" secret.json)
             echo "$key=$value" >> $GITHUB_ENV
           done
 
-      # Build, tag, and push Docker image
-      - name: Build & Push Docker Image
+      - name: Build and Push Docker Image
         run: |
-          IMAGE_TAG=latest
-          ECR_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO }}
-          echo "Building image: $ECR_URI:$IMAGE_TAG"
-          docker build -t $ECR_URI:$IMAGE_TAG .
-          docker push $ECR_URI:$IMAGE_TAG
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
 
-      # Deploy to ECS
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
+            --cluster django-ecs-cluster \
+            --service django-service \
             --force-new-deployment
-
-      # Run Django migrations
-      - name: Run DB Migrations
-        run: |
-          docker run --rm \
-            -e DB_NAME=$DB_NAME \
-            -e DB_USER=$DB_USER \
-            -e DB_PASSWORD=$DB_PASSWORD \
-            -e DB_HOST=$DB_HOST \
-            -e DB_PORT=$DB_PORT \
-            -e DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY \
-            my-django-app:latest \
-            python manage.py migrate
-
-      # Create Django admin user
-      - name: Create Django Admin
-        run: |
-          docker run --rm \
-            -e DB_NAME=$DB_NAME \
-            -e DB_USER=$DB_USER \
-            -e DB_PASSWORD=$DB_PASSWORD \
-            -e DB_HOST=$DB_HOST \
-            -e DB_PORT=$DB_PORT \
-            -e DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY \
-            -e DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }} \
-            my-django-app:latest \
-            python manage.py createsuperuser --noinput --username admin --email setchuko@gmail.com
