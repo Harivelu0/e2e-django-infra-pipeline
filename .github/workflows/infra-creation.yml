@@ -58,7 +58,7 @@ jobs:
 
       # ✅ NEW: Upload artifact
       - name: Upload Secret Name Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-secret
           path: secret_name.txt
