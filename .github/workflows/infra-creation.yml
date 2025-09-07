@@ -45,12 +45,14 @@ jobs:
         run: terraform plan -out=tfplan -input=false
         env:
           TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
+          TF_VAR_admin_password: ${{ secrets.ADMIN_PASSWORD }}
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
         env:
           TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
+          TF_VAR_admin_password: ${{ secrets.ADMIN_PASSWORD }}
 
       - name: Infra Completed
         run: echo "✅ Terraform infra applied successfully. Outputs are stored in remote backend."
