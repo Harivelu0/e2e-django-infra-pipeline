@@ -24,14 +24,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       
-      # 3️⃣ Setup Terraform CLI
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: latest
 
+      - name: Terraform Init (remote backend)
+        working-directory: terraform
+        run: terraform init -input=false
 
-      # 3️⃣ Fetch Terraform outputs (dynamic secret name)
       - name: Fetch Terraform output
         working-directory: terraform
         run: |
