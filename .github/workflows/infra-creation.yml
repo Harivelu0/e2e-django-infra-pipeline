@@ -52,16 +52,5 @@ jobs:
         env:
           TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
 
-      # ✅ NEW: Export secret name to file
-      - name: Export secret name
-        run: terraform output -raw app_secret_name > secret_name.txt
-
-      # ✅ NEW: Upload artifact
-      - name: Upload Secret Name Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-secret
-          path: secret_name.txt
-
       - name: Infra Completed
         run: echo "✅ Terraform infra applied successfully. Outputs are stored in remote backend."

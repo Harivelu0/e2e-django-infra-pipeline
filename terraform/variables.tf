@@ -57,6 +57,11 @@ variable "django_secret_key" {
   sensitive = true
 }
 
+variable "admin_password" {
+  type      = string
+  sensitive = true
+}
+
 #container images
 variable "container_image" {
   description = "ECR image for the ECS task (with tag)"

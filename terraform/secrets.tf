@@ -17,5 +17,6 @@ resource "aws_secretsmanager_secret_version" "app_secret_version" {
     DB_HOST           = aws_db_instance.mysql.endpoint
     DB_PORT           = "3306"
     DJANGO_SECRET_KEY = var.django_secret_key
+    ADMIN_PASSWORD    = var.admin_password 
   })
 }
