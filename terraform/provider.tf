@@ -5,7 +5,7 @@ terraform {
     bucket         = "my-terraform-backend-bucketing-bucket" # Replace with 
     key            = "ecs-app/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "terraform-locks" # DynamoDB for state locking
+    dynamodb_table = "terraform-locks"
     encrypt        = true
   }
 

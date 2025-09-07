@@ -16,7 +16,7 @@ jobs:
 
       # ✅ Download secret_name.txt from Infra pipeline
       - name: Download secret artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: app-secret
           path: .
