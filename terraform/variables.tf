@@ -74,6 +74,6 @@ variable "docker_image" {
   description = "ECR image for the ECS task (with tag)"
   type        = string
   default     = "nginx:latest"
-  
+
 }
 
