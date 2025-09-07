@@ -34,3 +34,4 @@ jobs:
         run: terraform destroy -auto-approve
         env:
           TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
+          TF_VAR_admin_password: ${{ secrets.ADMIN_PASSWORD }}
