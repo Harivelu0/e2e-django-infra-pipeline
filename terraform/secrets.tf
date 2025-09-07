@@ -5,10 +5,10 @@ resource "random_string" "secret_suffix" {
 }
 
 resource "aws_secretsmanager_secret" "app_secrets" {
-  name = "${var.project_name}-secret-${random_string.secret_suffix.result}"
-
+  name = "${var.project_name}-secrets-${random_string.secret_suffix.result}"
 }
-resource "aws_secretsmanager_secret_version" "djsecretversion" {
+
+resource "aws_secretsmanager_secret_version" "app_secret_version" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
     DB_NAME           = var.db_name
@@ -20,4 +20,6 @@ resource "aws_secretsmanager_secret_version" "djsecretversion" {
   })
 }
 
-
+output "app_secret_name" {
+  value = aws_secretsmanager_secret.app_secrets.name
+}

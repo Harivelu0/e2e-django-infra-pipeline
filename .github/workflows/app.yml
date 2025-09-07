@@ -1,49 +1,67 @@
-name: App CI/CD Pipeline
+name: Deploy App
 
 on:
-  workflow_run:
-    workflows: ["infra-creation"]
-    types:
-      - completed
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: us-east-1
-      ECR_REPO: my-django-app
-      ECS_CLUSTER: django-ecs-cluster
-      ECS_SERVICE: django-service
-      CONTAINER_NAME: django-container
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      # Configure AWS auth (OIDC best practice, no static creds)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-deploy-role
+          aws-region: us-east-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, Tag, and Push Docker Image
+      # Fetch secret name output from Terraform state (stored in S3 backend)
+      - name: Get Secret Name from Terraform
         run: |
-          IMAGE_TAG=latest
-          ECR_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO }}
-          echo "Building image: $ECR_URI:$IMAGE_TAG"
+          SECRET_NAME=$(terraform -chdir=infra output -raw app_secret_name)
+          echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
 
-          docker build -t $ECR_URI:$IMAGE_TAG .
-          docker push $ECR_URI:$IMAGE_TAG
+      # Fetch values from AWS Secrets Manager
+      - name: Fetch App Secrets
+        id: secrets
+        run: |
+          SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id $SECRET_NAME \
+            --query SecretString \
+            --output text)
 
+          echo "$SECRET_JSON" > secret.json
+
+          DB_NAME=$(jq -r .DB_NAME secret.json)
+          DB_USER=$(jq -r .DB_USER secret.json)
+          DB_PASSWORD=$(jq -r .DB_PASSWORD secret.json)
+          DB_HOST=$(jq -r .DB_HOST secret.json)
+          DB_PORT=$(jq -r .DB_PORT secret.json)
+          DJANGO_SECRET_KEY=$(jq -r .DJANGO_SECRET_KEY secret.json)
+
+          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
+          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$DB_PASSWORD" >> $GITHUB_ENV
+          echo "DB_HOST=$DB_HOST" >> $GITHUB_ENV
+          echo "DB_PORT=$DB_PORT" >> $GITHUB_ENV
+          echo "DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY" >> $GITHUB_ENV
+
+      # Build & Push Docker Image
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest .
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
+
+      # Deploy to ECS (example)
       - name: Deploy to ECS
         run: |
-          echo "Updating ECS Service..."
           aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
+            --cluster my-cluster \
+            --service my-service \
             --force-new-deployment

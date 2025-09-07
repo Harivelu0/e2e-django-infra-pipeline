@@ -23,7 +23,6 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: latest
-          # This allows terraform commands to return outputs properly
           terraform_wrapper: false
 
       - name: Configure AWS credentials
@@ -33,15 +32,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # The key difference: Terraform will store state AND outputs remotely
       - name: Terraform init with remote backend
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TERRAFORM_STATE_BUCKET }}" \
-            -backend-config="key=infrastructure/terraform.tfstate" \
-            -backend-config="region=us-east-1" \
-            -backend-config="encrypt=true" \
-            -input=false
+        run: terraform init
 
       - name: Terraform format
         run: terraform fmt -recursive
@@ -60,14 +52,5 @@ jobs:
         env:
           TF_VAR_django_secret_key: ${{ secrets.DJANGO_SECRET_KEY }}
 
-      # Optional: Display outputs for debugging (they're already stored in remote state)
-      - name: Display infrastructure outputs
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "🏗️ Infrastructure created successfully!"
-          echo ""
-          echo "📋 Infrastructure Details:"
-          terraform output -json | jq -r 'to_entries[] | "  \(.key): \(.value.value)"'
-          echo ""
-          echo "✅ Outputs are automatically stored in remote state"
-          echo "🚀 App pipeline can now access these outputs directly!"
+      - name: Infra Completed
+        run: echo "✅ Terraform infra applied successfully. Outputs are stored in remote backend."
