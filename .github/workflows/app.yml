@@ -11,24 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Setup Terraform to fetch remote state
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Init Terraform
-        run: terraform init -backend-config="region=us-east-1"
-
-      # Get secret name dynamically from remote backend
-      - name: Get Secret Name from Terraform
-        id: tf_outputs
-        run: |
-          SECRET_NAME=$(terraform output -raw app_secret_name)
-          echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
-
-      # Configure AWS credentials
+      # 2️⃣ Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -36,58 +23,63 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # Fetch actual secret values from AWS Secrets Manager
+      # 3️⃣ Fetch Terraform outputs (dynamic secret name)
+      - name: Fetch Terraform output
+        working-directory: terraform
+        run: |
+          echo "Fetching app_secret_name from remote backend..."
+          SECRET_NAME=$(terraform output -raw app_secret_name)
+          echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
+
+      # 4️⃣ Fetch App Secrets from AWS Secrets Manager
       - name: Fetch App Secrets
         run: |
           SECRET_JSON=$(aws secretsmanager get-secret-value \
-            --secret-id $SECRET_NAME \
+            --secret-id "$SECRET_NAME" \
             --query SecretString \
             --output text)
+          
           echo "$SECRET_JSON" > secret.json
+          
           for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
             value=$(jq -r ".${key}" secret.json)
             echo "$key=$value" >> $GITHUB_ENV
           done
 
-      # Install Python dependencies
-      - name: Install Python dependencies
+      # 5️⃣ Install Python dependencies
+      - name: Setup Python environment
         run: |
           python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Run Django migrations
-      - name: Run Django Migrations
+      # 6️⃣ Run Django migrations & create admin user
+      - name: Run DB migrations and create admin
         run: |
           source venv/bin/activate
+          export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
           export DB_NAME=$DB_NAME
           export DB_USER=$DB_USER
           export DB_PASSWORD=$DB_PASSWORD
           export DB_HOST=$DB_HOST
           export DB_PORT=$DB_PORT
-          export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
 
+          # Run migrations
           python manage.py migrate
 
-      # Create superuser (admin)
-      - name: Create Django Admin
-        env:
-          DJANGO_SUPERUSER_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-        run: |
+          # Create admin user if not exists
           python manage.py createsuperuser \
-            --username admin \
-            --email admin@example.com \
-            --noinput || echo "Admin already exists"
+            --noinput --username admin --email admin@example.com || echo "Admin already exists"
 
-      # Build & push Docker image
+      # 7️⃣ Build & push Docker image
       - name: Build and Push Docker Image
         run: |
           IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      # Deploy to ECS
+      # 8️⃣ Deploy to ECS
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
