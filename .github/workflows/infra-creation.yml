@@ -8,19 +8,20 @@ on:
 
 jobs:
   terraform:
+    name: Provision AWS Infrastructure
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: terraform
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.7.5
+          terraform_version: "1.7.5"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -29,20 +30,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Terraform Init & Apply
-        run: |
-          terraform init -input=false
-          terraform apply -auto-approve
+      - name: Terraform init
+        run: terraform init -input=false
 
-      - name: Export Secret Name
-        id: export_secret
-        run: |
-          SECRET_NAME=$(terraform output -raw app_secret_name)
-          echo "secret_name=$SECRET_NAME" >> $GITHUB_OUTPUT
+      - name: Terraform format
+        run: terraform fmt -check
 
-      - name: Upload Secret Name as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: app-secret
-          path: secret_name.txt
-        run: echo "${{ steps.export_secret.outputs.secret_name }}" > secret_name.txt
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: Terraform plan
+        run: terraform plan -out=tfplan
+
+      - name: Terraform apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve
+
+      - name: Export outputs
+        id: tfoutputs
+        run: |
+          terraform output -json > tfoutputs.json
+          cat tfoutputs.json
