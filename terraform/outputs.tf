@@ -25,3 +25,7 @@ output "secrets_manager_arn" {
 output "ecs_cluster_name" {
   value = aws_ecs_cluster.main.name
 }
+output "app_secret_name" {
+  description = "The name of the AWS Secrets Manager secret for the app"
+  value       = aws_secretsmanager_secret.app_secrets.name
+}

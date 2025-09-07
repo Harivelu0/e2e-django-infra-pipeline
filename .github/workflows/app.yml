@@ -54,19 +54,23 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Django Migrations
+        env:
+          DJANGO_SECRET_KEY: ${{ env.DJANGO_SECRET_KEY }}
+          DB_NAME: ${{ env.DB_NAME }}
+          DB_USER: ${{ env.DB_USER }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+          DB_HOST: ${{ env.DB_HOST }}
+          DB_PORT: ${{ env.DB_PORT }}
         run: |
           source venv/bin/activate
-          export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
-          export DB_NAME=$DB_NAME
-          export DB_USER=$DB_USER
-          export DB_PASSWORD=$DB_PASSWORD
-          export DB_HOST=$DB_HOST
-          export DB_PORT=$DB_PORT
-          
           python manage.py migrate
-          
-          # Optional: Create admin user if not exists
+          # Optional superuser if env vars set
           python manage.py createsuperuser --noinput --username admin --email admin@example.com || echo "Admin already exists"
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 | \
+          docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
 
       - name: Build and Push Docker Image
         run: |
