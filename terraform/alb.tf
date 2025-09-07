@@ -9,7 +9,7 @@ resource "aws_lb" "app_alb" {
   }
 }
 
-# Target Groups
+# Target Group
 resource "aws_lb_target_group" "app_tg" {
   name        = "${var.project_name}-tg"
   port        = 8000
