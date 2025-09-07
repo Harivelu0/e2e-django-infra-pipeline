@@ -35,18 +35,31 @@ jobs:
         working-directory: terraform
         run: terraform init -input=false
 
-      # 5️⃣ Fetch app secret name from remote Terraform backend
-      - name: Fetch App Secret Name
+      # 5️⃣ Extract secret name dynamically using pattern matching
+      - name: Extract Secret Name
         working-directory: terraform
         run: |
           echo "Fetching app_secret_name from Terraform output..."
-          SECRET_NAME=$(terraform output -raw app_secret_name)
-          if [ -z "$SECRET_NAME" ]; then
-            echo "Error: Failed to retrieve secret name from Terraform output"
-            exit 1
+          TERRAFORM_OUTPUT=$(terraform output -json)
+          echo "Raw Terraform output retrieved"
+          
+          # Extract the app_secret_name value using jq
+          EXTRACTED_SECRET=$(echo $TERRAFORM_OUTPUT | jq -r '.app_secret_name.value')
+          
+          if [ -z "$EXTRACTED_SECRET" ] || [ "$EXTRACTED_SECRET" == "null" ]; then
+            echo "Error: Could not extract secret name using jq"
+            
+            # Fallback method: extract using grep
+            EXTRACTED_SECRET=$(echo $TERRAFORM_OUTPUT | grep -o 'django-blog-secrets-[a-zA-Z0-9]*' | head -n 1)
+            
+            if [ -z "$EXTRACTED_SECRET" ]; then
+              echo "Error: Failed to extract secret name using fallback method"
+              exit 1
+            fi
           fi
-          echo "Secret name retrieved: $SECRET_NAME"
-          echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
+          
+          echo "Extracted secret name: $EXTRACTED_SECRET"
+          echo "SECRET_NAME=$EXTRACTED_SECRET" >> $GITHUB_ENV
 
       # 6️⃣ Fetch app secrets from AWS Secrets Manager
       - name: Fetch App Secrets
