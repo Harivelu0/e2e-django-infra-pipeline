@@ -19,7 +19,3 @@ resource "aws_secretsmanager_secret_version" "app_secret_version" {
     DJANGO_SECRET_KEY = var.django_secret_key
   })
 }
-
-output "app_secret_name" {
-  value = aws_secretsmanager_secret.app_secrets.name
-}
