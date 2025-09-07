@@ -71,8 +71,24 @@ jobs:
           AWS_REGION: us-east-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
+      # 7️⃣ Check and fix settings.py file
+      - name: Check and Fix Django Settings
+        working-directory: django5-blog-tutorial
+        run: |
+          SETTINGS_FILE="myapp/settings.py"
+          
+          # Check if os is imported
+          if ! grep -q "^import os" "$SETTINGS_FILE"; then
+            echo "Adding os import to settings.py"
+            sed -i '1s/^/import os\n/' "$SETTINGS_FILE"
+          fi
+          
+          # Print settings file for debugging
+          echo "Settings file content after update:"
+          head -n 20 "$SETTINGS_FILE"
          
-      # 7️⃣ Install Python dependencies
+      # 8️⃣ Install Python dependencies
       - name: Setup Python environment
         working-directory: django5-blog-tutorial
         run: |
@@ -81,7 +97,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 8️⃣ Run Django migrations & create admin user
+      # 9️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
         working-directory: django5-blog-tutorial
         run: |
@@ -92,7 +108,13 @@ jobs:
           export DB_PASSWORD=$DB_PASSWORD
           export DB_HOST=$DB_HOST
           export DB_PORT=$DB_PORT
-
+          
+          # For debugging
+          echo "Environment variables set:"
+          echo "DB_NAME: $DB_NAME"
+          echo "DB_HOST: $DB_HOST"
+          echo "DB_PORT: $DB_PORT"
+          
           echo "Running Django migrations..."
           python manage.py migrate
 
@@ -100,7 +122,7 @@ jobs:
           python manage.py createsuperuser \
             --noinput --username admin --email admin@example.com || echo "Admin already exists"
 
-      # 9️⃣ Build & push Docker image
+      # 🔟 Build & push Docker image
       - name: Build and Push Docker Image
         working-directory: django5-blog-tutorial
         run: |
@@ -112,7 +134,7 @@ jobs:
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
 
-      # 🔟 Deploy to ECS
+      # 1️⃣1️⃣ Deploy to ECS
       - name: Deploy to ECS
         run: |
           echo "Deploying to ECS..."
