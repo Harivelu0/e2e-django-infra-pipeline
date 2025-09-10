@@ -85,22 +85,71 @@ jobs:
          
       # 7️⃣ Install Python dependencies
       - name: Setup Python environment
+        working-directory: django5-blog-tutorial
         run: |
-          # Create a virtual environment in a known location
           python3 -m venv /home/runner/venv
           source /home/runner/venv/bin/activate
+          
+          # Install MySQL client system dependencies
+          sudo apt-get update
+          sudo apt-get install -y python3-dev default-libmysqlclient-dev build-essential
+          
           pip install --upgrade pip
-          cd django5-blog-tutorial
-          pip install -r requirements.txt      
+          pip install -r requirements.txt
+
+      # ADD THESE NEW STEPS HERE
+      
+      # 7.5️⃣ Fix DB_HOST and DB_PORT
+      - name: Fix DB connection parameters
+        run: |
+          echo "Original DB_HOST: $DB_HOST"
+          
+          # Extract hostname without port
+          if [[ "$DB_HOST" == *":"* ]]; then
+            HOSTNAME=$(echo "$DB_HOST" | cut -d':' -f1)
+            PORT=$(echo "$DB_HOST" | cut -d':' -f2)
+            
+            echo "Extracted hostname: $HOSTNAME"
+            echo "Extracted port: $PORT"
+            
+            # Set corrected environment variables
+            echo "DB_HOST=$HOSTNAME" >> $GITHUB_ENV
+            echo "DB_PORT=$PORT" >> $GITHUB_ENV
+            
+            echo "Updated DB_HOST and DB_PORT in environment"
+          fi
+          
+          # Print for verification
+          echo "Will use DB_HOST: $HOSTNAME"
+          echo "Will use DB_PORT: $DB_PORT"
+      
+      # 7.6️⃣ Test Database Connection
+      - name: Test database connectivity
+        run: |
+          sudo apt-get update && sudo apt-get install -y netcat
+          
+          echo "Testing connection to $DB_HOST:$DB_PORT..."
+          nc -zv $DB_HOST $DB_PORT || (echo "⚠️ Cannot connect to database - possible network/security group issue" && exit 1)
+          
+          echo "✅ Successfully connected to database"
+      
+      # 7.7️⃣ Test MySQL Connection
+      - name: Test MySQL connection
+        run: |
+          sudo apt-get update && sudo apt-get install -y mysql-client
+          
+          echo "Testing MySQL connection with credentials..."
+          mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" || (echo "⚠️ MySQL authentication failed" && exit 1)
+          
+          echo "✅ Successfully authenticated to MySQL"
+      
+      # END OF NEW STEPS
 
       # 8️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
         working-directory: django5-blog-tutorial
         run: |
-          # Use the absolute path to the virtual environment
           source /home/runner/venv/bin/activate
-          
-          # Set environment variables
           export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
           export DB_NAME=$DB_NAME
           export DB_USER=$DB_USER
@@ -120,24 +169,4 @@ jobs:
           python manage.py createsuperuser \
             --noinput --username admin --email admin@example.com || echo "Admin already exists"
       
-      # 9️⃣ Build & push Docker image
-      - name: Build and Push Docker Image
-        run: |
-          echo "Authenticating with ECR..."
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
-          
-          echo "Building and pushing Docker image..."
-          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
-      
-      # 🔟 Deploy to ECS
-      - name: Deploy to ECS
-        run: |
-          echo "Deploying to ECS..."
-          aws ecs update-service \
-            --cluster django-ecs-cluster \
-            --service django-service \
-            --force-new-deployment
-          
-          echo "Deployment complete!"
+      # Rest of your workflow...
