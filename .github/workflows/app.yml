@@ -35,34 +35,45 @@ jobs:
         working-directory: terraform
         run: terraform init -input=false
 
-      # 5️⃣ Use GitHub's step outputs method to set variables
-      - name: Set Secret Name
-        id: set_secret
+      # 5️⃣ Fetch secret name from Parameter Store directly
+      - name: Fetch Secret Name from Parameter Store
         run: |
-          # Just hardcode the secret name for now to get the workflow working
-          echo "SECRET_NAME=django-blog-secrets-bv4fh0" >> "$GITHUB_OUTPUT"
-
+          echo "Fetching app_secret_name from Parameter Store..."
+          SECRET_NAME=$(aws ssm get-parameter \
+            --name "/django-blog/app_secret_name" \
+            --query "Parameter.Value" \
+            --output text)
+          
+          # Validate that we got a value
+          if [ -z "$SECRET_NAME" ]; then
+            echo "Error: Failed to retrieve secret name from Parameter Store"
+            exit 1
+          fi
+          
+          echo "Retrieved secret name: $SECRET_NAME"
+          echo "SECRET_NAME=$SECRET_NAME" >> $GITHUB_ENV
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      
       # 6️⃣ Fetch app secrets from AWS Secrets Manager
       - name: Fetch App Secrets
         run: |
-          echo "Retrieving secrets using name: ${{ steps.set_secret.outputs.SECRET_NAME }}"
+          echo "Retrieving secrets using name: $SECRET_NAME"
           SECRET_JSON=$(aws secretsmanager get-secret-value \
-            --secret-id "${{ steps.set_secret.outputs.SECRET_NAME }}" \
+            --secret-id "$SECRET_NAME" \
             --query SecretString \
             --output text)
           
           echo "Secret retrieved successfully. Parsing values..."
           echo "$SECRET_JSON" > secret.json
-
-          # Create environment file for the next steps
-          {
-            echo "DB_NAME=$(jq -r '.DB_NAME' secret.json)"
-            echo "DB_USER=$(jq -r '.DB_USER' secret.json)"
-            echo "DB_PASSWORD=$(jq -r '.DB_PASSWORD' secret.json)"
-            echo "DB_HOST=$(jq -r '.DB_HOST' secret.json)"
-            echo "DB_PORT=$(jq -r '.DB_PORT' secret.json)"
-            echo "DJANGO_SECRET_KEY=$(jq -r '.DJANGO_SECRET_KEY' secret.json)"
-          } > "$GITHUB_ENV"
+          for key in DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT DJANGO_SECRET_KEY; do
+            value=$(jq -r ".${key}" secret.json)
+            echo "$key has been set"
+            echo "$key=$value" >> $GITHUB_ENV
+          done
           
           # Remove secret file after use
           rm secret.json
@@ -71,35 +82,17 @@ jobs:
           AWS_REGION: us-east-1
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      
-      # 7️⃣ Check and fix settings.py file
-      - name: Check and Fix Django Settings
-        working-directory: django5-blog-tutorial
-        run: |
-          SETTINGS_FILE="myapp/settings.py"
-          
-          # Check if os is imported
-          if ! grep -q "^import os" "$SETTINGS_FILE"; then
-            echo "Adding os import to settings.py"
-            sed -i '1s/^/import os\n/' "$SETTINGS_FILE"
-          fi
-          
-          # Print settings file for debugging
-          echo "Settings file content after update:"
-          head -n 20 "$SETTINGS_FILE"
          
-      # 8️⃣ Install Python dependencies
+      # 7️⃣ Install Python dependencies
       - name: Setup Python environment
-        working-directory: django5-blog-tutorial
         run: |
           python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-
-      # 9️⃣ Run Django migrations & create admin user
+      
+      # 8️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
-        working-directory: django5-blog-tutorial
         run: |
           source venv/bin/activate
           export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
@@ -109,7 +102,6 @@ jobs:
           export DB_HOST=$DB_HOST
           export DB_PORT=$DB_PORT
           
-          # For debugging
           echo "Environment variables set:"
           echo "DB_NAME: $DB_NAME"
           echo "DB_HOST: $DB_HOST"
@@ -117,14 +109,13 @@ jobs:
           
           echo "Running Django migrations..."
           python manage.py migrate
-
+          
           echo "Creating admin user if not exists..."
           python manage.py createsuperuser \
             --noinput --username admin --email admin@example.com || echo "Admin already exists"
-
-      # 🔟 Build & push Docker image
+      
+      # 9️⃣ Build & push Docker image
       - name: Build and Push Docker Image
-        working-directory: django5-blog-tutorial
         run: |
           echo "Authenticating with ECR..."
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
@@ -133,8 +124,8 @@ jobs:
           IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
-
-      # 1️⃣1️⃣ Deploy to ECS
+      
+      # 🔟 Deploy to ECS
       - name: Deploy to ECS
         run: |
           echo "Deploying to ECS..."

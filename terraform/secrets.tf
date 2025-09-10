@@ -20,3 +20,10 @@ resource "aws_secretsmanager_secret_version" "app_secret_version" {
     ADMIN_PASSWORD    = var.admin_password 
   })
 }
+
+resource "aws_ssm_parameter" "app_secret_name" {
+  name        = "/${var.project_name}/app_secret_name"
+  description = "Name of the secret in AWS Secrets Manager"
+  type        = "String"
+  value       = aws_secretsmanager_secret.app_secrets.name
+}
