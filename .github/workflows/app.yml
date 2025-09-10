@@ -89,7 +89,7 @@ jobs:
           python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r django5-blog-tutorial/requirements.txt
       
       # 8️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
