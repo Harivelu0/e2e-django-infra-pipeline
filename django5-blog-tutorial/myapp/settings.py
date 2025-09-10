@@ -90,6 +90,12 @@ WSGI_APPLICATION = 'myapp.wsgi.application'
 #     }
 # }
 
+db_host_raw = os.environ.get('DB_HOST', '')
+if ':' in db_host_raw:
+    db_host = db_host_raw.split(':')[0]  # Get just the hostname part
+else:
+    db_host = db_host_raw
+    
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
