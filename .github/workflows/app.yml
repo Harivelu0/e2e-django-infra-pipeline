@@ -93,6 +93,7 @@ jobs:
       
       # 8️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
+        working-directory: django5-blog-tutorial
         run: |
           source venv/bin/activate
           export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
