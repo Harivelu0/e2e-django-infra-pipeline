@@ -86,16 +86,21 @@ jobs:
       # 7️⃣ Install Python dependencies
       - name: Setup Python environment
         run: |
-          python3 -m venv venv
-          source venv/bin/activate
+          # Create a virtual environment in a known location
+          python3 -m venv /home/runner/venv
+          source /home/runner/venv/bin/activate
           pip install --upgrade pip
-          pip install -r django5-blog-tutorial/requirements.txt
-      
+          cd django5-blog-tutorial
+          pip install -r requirements.txt      
+
       # 8️⃣ Run Django migrations & create admin user
       - name: Run DB migrations and create admin
         working-directory: django5-blog-tutorial
         run: |
-          source venv/bin/activate
+          # Use the absolute path to the virtual environment
+          source /home/runner/venv/bin/activate
+          
+          # Set environment variables
           export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
           export DB_NAME=$DB_NAME
           export DB_USER=$DB_USER
