@@ -9,6 +9,18 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 }
 
 
+//needs to remove this rule after migrations are done
+resource "aws_security_group_rule" "rds_public_migrations" {
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.rds_sg.id
+  description       = "Temporary access for migrations (remove in production)"
+}
+
+
 resource "aws_db_instance" "mysql" {
   identifier              = "${var.project_name}-rds"
   engine                  = "mysql"
@@ -21,7 +33,7 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
   db_subnet_group_name    = aws_db_subnet_group.rds_subnet_group.name
   multi_az                = false
-  publicly_accessible     = false
+  publicly_accessible     = true #needs to change 
   storage_encrypted       = false
   backup_retention_period = 7
   skip_final_snapshot     = true
