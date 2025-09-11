@@ -29,3 +29,8 @@ output "app_secret_name" {
   description = "The name of the AWS Secrets Manager secret for the app"
   value       = aws_secretsmanager_secret.app_secrets.name
 }
+
+output "ecr_repository_url" {
+  value = aws_ecr_repository.app_repo.repository_url
+  description = "The URL of the ECR repository"
+}

@@ -138,12 +138,42 @@ jobs:
           docker push $IMAGE_URI
       
       # 🔟 Deploy to ECS
-      - name: Deploy to ECS
+      - name: Update task definition and deploy to ECS
         run: |
+          echo "Preparing ECS deployment..."
+          
+          # Set variables
+          PROJECT_NAME="django-blog"
+          ECR_REPO="myapp"
+          IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/${ECR_REPO}:latest"
+          TASK_FAMILY="${PROJECT_NAME}-task"
+          
+          echo "Using image: $IMAGE_URI"
+          
+          # Get the current task definition
+          echo "Retrieving current task definition..."
+          aws ecs describe-task-definition \
+            --task-definition $TASK_FAMILY \
+            --query taskDefinition > task-def.json
+          
+          # Update the image in the task definition
+          echo "Updating image in task definition..."
+          jq --arg IMAGE "$IMAGE_URI" '.containerDefinitions[0].image = $IMAGE' task-def.json > new-task-def.json
+          
+          # Register the new task definition
+          echo "Registering new task definition..."
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          
+          echo "New task definition created: $NEW_TASK_DEF"
+          
+          # Update the service with the new task definition
           echo "Deploying to ECS..."
           aws ecs update-service \
-            --cluster django-blog-cluster \
-            --service django-blog-service \
+            --cluster "${PROJECT_NAME}-cluster" \
+            --service "${PROJECT_NAME}-service" \
+            --task-definition $NEW_TASK_DEF \
             --force-new-deployment
           
           echo "Deployment complete!"
