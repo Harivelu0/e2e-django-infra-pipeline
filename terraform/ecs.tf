@@ -41,12 +41,6 @@ resource "aws_ecs_task_definition" "app" {
         { name = "DB_HOST", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_HOST::" },
         { name = "DB_PORT", valueFrom = "${aws_secretsmanager_secret.app_secrets.arn}:DB_PORT::" }
       ]
-      command = [
-        "gunicorn",
-        "blog_project.wsgi:application",
-        "--bind", "0.0.0.0:8000",
-        "--workers", "3"
-      ]
     }
   ])
 }

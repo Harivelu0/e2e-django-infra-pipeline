@@ -123,32 +123,6 @@ jobs:
           echo "Will use DB_HOST: $HOSTNAME"
           echo "Will use DB_PORT: $DB_PORT"
       
-      # END OF NEW STEPS
-
-      # 8️⃣ Run Django migrations & create admin user
-      - name: Run DB migrations and create admin
-        working-directory: django5-blog-tutorial
-        run: |
-          source /home/runner/venv/bin/activate
-          export DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
-          export DB_NAME=$DB_NAME
-          export DB_USER=$DB_USER
-          export DB_PASSWORD=$DB_PASSWORD
-          export DB_HOST=$DB_HOST
-          export DB_PORT=$DB_PORT
-          
-          echo "Environment variables set:"
-          echo "DB_NAME: $DB_NAME"
-          echo "DB_HOST: $DB_HOST"
-          echo "DB_PORT: $DB_PORT"
-          
-          echo "Running Django migrations..."
-          python manage.py migrate
-          
-          echo "Creating admin user if not exists..."
-          python manage.py createsuperuser \
-            --noinput --username admin --email admin@example.com || echo "Admin already exists"
-      
       # 9️⃣ Build & push Docker image
       - name: Build and Push Docker Image
         run: |
