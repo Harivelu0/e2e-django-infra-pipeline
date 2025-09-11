@@ -142,8 +142,8 @@ jobs:
         run: |
           echo "Deploying to ECS..."
           aws ecs update-service \
-            --cluster django-ecs-cluster \
-            --service django-service \
+            --cluster django-blog-cluster \
+            --service django-blog-service \
             --force-new-deployment
           
           echo "Deployment complete!"
