@@ -123,7 +123,7 @@ jobs:
           echo "Will use DB_HOST: $HOSTNAME"
           echo "Will use DB_PORT: $DB_PORT"
       
-      # 9️⃣ Build & push Docker image
+      # 4️⃣ Build & push Docker image
       - name: Build and Push Docker Image
         run: |
           echo "Authenticating with ECR..."
@@ -131,6 +131,9 @@ jobs:
           
           echo "Building and pushing Docker image..."
           IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
+          
+          # Add working directory to Docker build command
+          cd django5-blog-tutorial
           docker build -t $IMAGE_URI .
           docker push $IMAGE_URI
       
