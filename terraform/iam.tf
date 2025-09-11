@@ -50,3 +50,22 @@ resource "aws_iam_role_policy_attachment" "secrets_read_attachment" {
   role       = aws_iam_role.ecs_task_role.name
   policy_arn = aws_iam_policy.secrets_read.arn
 }
+
+# Update the policy attached to the ECS execution role
+resource "aws_iam_policy" "ecs_execution_secrets_policy" {
+  name = "${var.project_name}-ecs-execution-secrets-policy"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+      Resource = aws_secretsmanager_secret.app_secrets.arn
+    }]
+  })
+}
+
+# Attach the policy to the execution role
+resource "aws_iam_role_policy_attachment" "ecs_execution_secrets_attachment" {
+  role       = aws_iam_role.ecs_execution_role.name
+  policy_arn = aws_iam_policy.ecs_execution_secrets_policy.arn
+}
